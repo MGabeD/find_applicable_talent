@@ -52,7 +52,10 @@ def list_candidates(
         data = store.dynamic_filters(spec, from_fresh_candidates=fresh)
         logger.info(f"Have {len(data)} candidates after filtering")
         return data
-    return store.get_candidates()
+    if fresh:
+        return store.get_candidates()
+    else:
+        return store.get_filtered_candidates()
 
 
 @app.post("/candidates/filter", response_model=list[Candidate])

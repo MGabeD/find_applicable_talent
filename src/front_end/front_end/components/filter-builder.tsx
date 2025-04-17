@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,11 +26,25 @@ import type { Filter, Operator } from "@/lib/types";
 
 interface FilterBuilderProps {
   onApplyFilters: (filters: Filter[]) => void;
+  onResetFilters: () => void;
+  initialFilters?: Filter[];
 }
 
-export function FilterBuilder({ onApplyFilters }: FilterBuilderProps) {
+export function FilterBuilder({
+  onApplyFilters,
+  onResetFilters,
+  initialFilters,
+}: FilterBuilderProps) {
   const [buttonClicked, setButtonClicked] = useState(false);
-  const [filters, setFilters] = useState<Filter[]>([]);
+  const [filtersResetClicked, setFiltersResetClicked] = useState(false);
+  const [filtersAppliedClicked, setFiltersAppliedClicked] = useState(false);
+  const [filters, setFilters] = useState<Filter[]>(initialFilters ?? []);
+
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(initialFilters);
+    }
+  }, [initialFilters]);
   const [currentFilter, setCurrentFilter] = useState<Filter>({
     path: "",
     operator: "==",
@@ -66,10 +80,15 @@ export function FilterBuilder({ onApplyFilters }: FilterBuilderProps) {
 
   const clearFilters = () => {
     setFilters([]);
+    setFiltersResetClicked(true);
+    onResetFilters();
+    setTimeout(() => setFiltersResetClicked(false), 300);
   };
 
   const applyFilters = () => {
+    setFiltersAppliedClicked(true);
     onApplyFilters(filters);
+    setTimeout(() => setFiltersAppliedClicked(false), 300);
   };
 
   // Organize paths by category for better UX
@@ -173,192 +192,201 @@ export function FilterBuilder({ onApplyFilters }: FilterBuilderProps) {
     currentFilter.path !== "" &&
     (currentFilter.value !== "" || currentValueType === "boolean");
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Custom Filters</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Select
-                value={currentFilter.path}
-                onValueChange={handlePathChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Path" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="placeholder" disabled>
-                    Select a field
-                  </SelectItem>
-                  {pathOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+    <>
+      <div className="mb-4 p-4 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+        Use the custom filter builder below to narrow down candidates based on
+        specific fields. Select a path, choose an operator, enter a value, and
+        click ➕ to add it to your filter list. Once you apply filters, they
+        will be applied to the candidates on the main page. Reseting filters
+        will remove all previously applied filters.
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Custom Filters</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Select
+                  value={currentFilter.path}
+                  onValueChange={handlePathChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Path" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder" disabled>
+                      Select a field
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Select
-                value={currentFilter.operator}
-                onValueChange={(value) =>
-                  setCurrentFilter({
-                    ...currentFilter,
-                    operator: value as Operator,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Operator" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredOperators.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              {currentValueType === "boolean" ? (
-                <div className="flex items-center space-x-2 w-full">
-                  <Checkbox
-                    id="isTrue"
-                    checked={currentFilter.value === "true"}
-                    onCheckedChange={(checked) =>
+                    {pathOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Select
+                  value={currentFilter.operator}
+                  onValueChange={(value) =>
+                    setCurrentFilter({
+                      ...currentFilter,
+                      operator: value as Operator,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Operator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredOperators.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                {currentValueType === "boolean" ? (
+                  <div className="flex items-center space-x-2 w-full">
+                    <Checkbox
+                      id="isTrue"
+                      checked={currentFilter.value === "true"}
+                      onCheckedChange={(checked) =>
+                        setCurrentFilter({
+                          ...currentFilter,
+                          value: checked ? "true" : "false",
+                        })
+                      }
+                    />
+                    <Label htmlFor="isTrue">True</Label>
+                  </div>
+                ) : currentValueType === "date" ? (
+                  <Input
+                    type="date"
+                    value={currentFilter.value}
+                    onChange={(e) =>
                       setCurrentFilter({
                         ...currentFilter,
-                        value: checked ? "true" : "false",
+                        value: e.target.value,
                       })
                     }
                   />
-                  <Label htmlFor="isTrue">True</Label>
-                </div>
-              ) : currentValueType === "date" ? (
-                <Input
-                  type="date"
-                  value={currentFilter.value}
-                  onChange={(e) =>
-                    setCurrentFilter({
-                      ...currentFilter,
-                      value: e.target.value,
-                    })
-                  }
-                />
-              ) : currentValueType === "number" ? (
-                <Input
-                  type="number"
-                  placeholder="Value"
-                  value={currentFilter.value}
-                  onChange={(e) =>
-                    setCurrentFilter({
-                      ...currentFilter,
-                      value: e.target.value,
-                    })
-                  }
-                />
-              ) : (
-                <Input
-                  placeholder="Value"
-                  value={currentFilter.value}
-                  onChange={(e) =>
-                    setCurrentFilter({
-                      ...currentFilter,
-                      value: e.target.value,
-                    })
-                  }
-                />
-              )}
-              <Button
-                size="icon"
-                onClick={addFilter}
-                disabled={!isReadyToAdd}
-                className={`transition-colors ${
-                  isReadyToAdd
-                    ? "bg-green-600 text-white hover:bg-green-700"
-                    : "bg-green-100 text-green-400 cursor-not-allowed"
-                } ${buttonClicked ? "animate-ping-once" : ""}`}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {filters.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Active Filters:</div>
-            <div className="flex flex-wrap gap-2">
-              {filters.map((filter, index) => {
-                const pathLabel =
-                  pathOptions.find((p) => p.value === filter.path)?.label ||
-                  filter.path;
-                const operatorLabel =
-                  operatorOptions.find((o) => o.value === filter.operator)
-                    ?.label || filter.operator;
-
-                return (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="flex items-center gap-1"
-                  >
-                    <span>
-                      {pathLabel} {operatorLabel} "{filter.value}"
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 ml-1"
-                      onClick={() => removeFilter(index)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                );
-              })}
-              {filters.length > 1 && (
+                ) : currentValueType === "number" ? (
+                  <Input
+                    type="number"
+                    placeholder="Value"
+                    value={currentFilter.value}
+                    onChange={(e) =>
+                      setCurrentFilter({
+                        ...currentFilter,
+                        value: e.target.value,
+                      })
+                    }
+                  />
+                ) : (
+                  <Input
+                    placeholder="Value"
+                    value={currentFilter.value}
+                    onChange={(e) =>
+                      setCurrentFilter({
+                        ...currentFilter,
+                        value: e.target.value,
+                      })
+                    }
+                  />
+                )}
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={clearFilters}
+                  size="icon"
+                  onClick={addFilter}
+                  disabled={!isReadyToAdd}
+                  className={`transition-colors ${
+                    isReadyToAdd
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-green-100 text-green-400 cursor-not-allowed"
+                  } ${buttonClicked ? "animate-ping-once" : ""}`}
                 >
-                  Clear All
+                  <Plus className="h-4 w-4" />
                 </Button>
-              )}
+              </div>
             </div>
           </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex gap-2">
-        <Button
-          variant={filters.length > 0 ? "default" : "outline"}
-          className={
-            filters.length > 0
-              ? "flex-1 bg-primary text-white"
-              : "flex-1 bg-muted text-muted-foreground"
-          }
-          onClick={applyFilters}
-          disabled={filters.length === 0}
-        >
-          Apply Filters
-        </Button>
-        <Button
-          className={`flex-1 transition-colors ${
-            filters.length > 0
-              ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-red-100 text-red-400 cursor-not-allowed"
-          }`}
-          onClick={clearFilters}
-          disabled={filters.length === 0}
-        >
-          Reset Filters
-        </Button>
-      </CardFooter>
-    </Card>
+
+          {filters.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Active Filters:</div>
+              <div className="flex flex-wrap gap-2">
+                {filters.map((filter, index) => {
+                  const pathLabel =
+                    pathOptions.find((p) => p.value === filter.path)?.label ||
+                    filter.path;
+                  const operatorLabel =
+                    operatorOptions.find((o) => o.value === filter.operator)
+                      ?.label || filter.operator;
+
+                  return (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      <span>
+                        {pathLabel} {operatorLabel} "{filter.value}"
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 p-0 ml-1"
+                        onClick={() => removeFilter(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  );
+                })}
+                {filters.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={clearFilters}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="flex gap-2">
+          <Button
+            variant={filters.length > 0 ? "default" : "outline"}
+            className={`flex-1 transition-colors ${
+              filters.length > 0
+                ? "bg-primary text-white"
+                : "bg-muted text-muted-foreground"
+            } ${filtersAppliedClicked ? "animate-ping-once" : ""}`}
+            onClick={applyFilters}
+            disabled={filters.length === 0}
+          >
+            Apply Filters
+          </Button>
+          <Button
+            className={`flex-1 transition-colors ${
+              filters.length > 0
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-red-100 text-red-400 cursor-not-allowed"
+            } ${filtersResetClicked ? "animate-ping-once" : ""}`}
+            onClick={clearFilters}
+            disabled={filters.length === 0}
+          >
+            Reset Filters
+          </Button>
+        </CardFooter>
+      </Card>
+    </>
   );
 }

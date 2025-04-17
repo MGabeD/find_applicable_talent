@@ -239,6 +239,9 @@ class CandidateList:
     def get_candidates(self) -> List[Candidate]:
         return self.candidates
     
+    def get_filtered_candidates(self) -> List[Candidate]:
+        return self.filtered_candidates
+
     def get_candidate_by_id(self, candidate_id: str) -> Optional[Candidate]:
         for candidate in self.candidates:
             if candidate.id == candidate_id:

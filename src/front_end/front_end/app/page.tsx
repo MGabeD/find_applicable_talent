@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateDialog } from "@/components/candidate-dialog";
 import { toast } from "@/components/ui/use-toast";
-import type { Candidate } from "@/lib/types";
+import type { Candidate, Filter } from "@/lib/types";
 
 export default function Home() {
+  const [activeFilters, setActiveFilters] = useState<Filter[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,45 +21,86 @@ export default function Home() {
     null
   );
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:8000/candidates/reload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: null }), // Optional, pass `path` if needed
+      });
 
+      if (!response.ok) {
+        throw new Error(`Reload failed: ${response.status}`);
+      }
+
+      toast({
+        title: "Reload Successful",
+        description: "Candidate list has been reloaded.",
+      });
+      setActiveFilters([]);
+      await fetchCandidates(true); // Then refetch updated data
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to reload candidates. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCandidates = async (fresh?: boolean) => {
+    setLoading(true);
+    setError(null);
+
+    // Default to fresh = false unless filters are empty
+    const shouldUseFresh = fresh ?? activeFilters.length < 1;
+
+    // You can later add path/operator/value if needed
+    const queryParams = new URLSearchParams({
+      from_fresh_candidates: shouldUseFresh.toString(),
+    });
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/candidates?${queryParams}`
+      );
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      const data = await response.json();
+      setCandidates(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch candidates"
+      );
+      toast({
+        title: "Error",
+        description: "Failed to fetch candidates. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   // Fetch candidates from API
   useEffect(() => {
-    const fetchCandidates = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch("http://localhost:8000/candidates");
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
-        }
-        const data = await response.json();
-        setCandidates(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch candidates"
-        );
-        toast({
-          title: "Error",
-          description: "Failed to fetch candidates. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCandidates();
-  }, [refreshTrigger]);
+    fetchCandidates(true);
+  }, []);
 
   // Handle delete candidate
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/candidates/${id}`, {
+      const response = await fetch(`http://localhost:8000/candidates/${id}`, {
         method: "DELETE",
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Candidate not found");
+        }
         throw new Error(`Error: ${response.status}`);
       }
 
@@ -71,10 +113,16 @@ export default function Home() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to delete candidate. Please try again.",
+        description:
+          err instanceof Error ? err.message : "Failed to delete candidate",
         variant: "destructive",
       });
     }
+  };
+
+  const handleResetFilters = () => {
+    setActiveFilters([]); // clear filters
+    fetchCandidates(true); // re-fetch fresh data
   };
 
   // Handle select candidate
@@ -107,20 +155,47 @@ export default function Home() {
     setDialogOpen(true);
   };
 
-  // Handle refresh
-  const handleRefresh = () => {
-    setRefreshTrigger((prev) => prev + 1);
-  };
+  const handleFilterCandidates = async (
+    filters: Filter[],
+    fresh: boolean = true
+  ) => {
+    setLoading(true);
+    setError(null);
 
-  // Handle filter application
-  const handleApplyFilters = (filters: any[]) => {
-    // In a real implementation, you would send these filters to the backend
-    // For now, we'll just log them
-    console.log("Filters to send to backend:", filters);
-    toast({
-      title: "Filters Applied",
-      description: `${filters.length} filters applied. This would be sent to the backend.`,
-    });
+    try {
+      const response = await fetch(
+        `http://localhost:8000/candidates/filter?from_fresh_candidates=${fresh}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(filters),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCandidates(data);
+      console.log("candidates.length before filter", candidates.length);
+      toast({
+        title: "Filters Applied",
+        description: `${filters.length} filter${
+          filters.length !== 1 ? "s" : ""
+        } applied.`,
+      });
+    } catch (err) {
+      setError("Failed to apply filters");
+      toast({
+        title: "Error",
+        description: "Failed to filter candidates. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setActiveFilters(filters);
+      setLoading(false);
+    }
   };
 
   return (
@@ -184,7 +259,11 @@ export default function Home() {
         </TabsContent>
 
         <TabsContent value="filters">
-          <FilterBuilder onApplyFilters={handleApplyFilters} />
+          <FilterBuilder
+            onApplyFilters={handleFilterCandidates}
+            onResetFilters={handleResetFilters}
+            initialFilters={activeFilters}
+          />
         </TabsContent>
       </Tabs>
 

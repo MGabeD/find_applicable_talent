@@ -128,22 +128,31 @@ export default function Home() {
   // Handle select candidate
   const handleSelect = async (id: string) => {
     try {
-      const response = await fetch(`/api/candidates/selected/${id}`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `http://localhost:8000/candidates/selected/${id}`,
+        {
+          method: "POST",
+        }
+      );
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Candidate not found");
+        }
         throw new Error(`Error: ${response.status}`);
       }
 
+      const data = await response.json();
+
       toast({
         title: "Success",
-        description: "Candidate selected successfully",
+        description: data.detail ?? "Candidate selected successfully",
       });
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to select candidate. Please try again.",
+        description:
+          err instanceof Error ? err.message : "Failed to select candidate",
         variant: "destructive",
       });
     }

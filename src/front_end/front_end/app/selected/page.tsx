@@ -1,86 +1,101 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Loader2, RefreshCw, ArrowLeft } from "lucide-react"
-import Link from "next/link"
+import { useEffect, useState } from "react";
+import { Loader2, RefreshCw, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
-import { CandidatePanel } from "@/components/candidate-panel"
-import { Button } from "@/components/ui/button"
-import { CandidateDialog } from "@/components/candidate-dialog"
-import { toast } from "@/components/ui/use-toast"
-import type { Candidate } from "@/lib/types"
+import { CandidatePanel } from "@/components/candidate-panel";
+import { Button } from "@/components/ui/button";
+import { CandidateDialog } from "@/components/candidate-dialog";
+import { toast } from "@/components/ui/use-toast";
+import type { Candidate } from "@/lib/types";
 
 export default function SelectedCandidates() {
-  const [candidates, setCandidates] = useState<Candidate[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(
+    null
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch selected candidates from API
   useEffect(() => {
     const fetchSelectedCandidates = async () => {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
-        const response = await fetch("/api/candidates/selected")
+        const response = await fetch(
+          "http://localhost:8000/candidates/selected/"
+        );
         if (!response.ok) {
-          throw new Error(`Error: ${response.status}`)
+          throw new Error(`Error: ${response.status}`);
         }
-        const data = await response.json()
-        setCandidates(data)
+        const data = await response.json();
+        setCandidates(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch selected candidates")
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch selected candidates"
+        );
         toast({
           title: "Error",
           description: "Failed to fetch selected candidates. Please try again.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchSelectedCandidates()
-  }, [refreshTrigger])
+    fetchSelectedCandidates();
+  }, [refreshTrigger]);
 
   // Handle delete candidate
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/candidates/${id}`, {
-        method: "DELETE",
-      })
+      const response = await fetch(
+        `http://localhost:8000/candidates/selected/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status}`)
+        if (response.status === 404) {
+          throw new Error("Candidate not in selected list");
+        }
+        throw new Error(`Error: ${response.status}`);
       }
 
       // Remove from local state
-      setCandidates(candidates.filter((candidate) => candidate.id !== id))
+      setCandidates(candidates.filter((candidate) => candidate.id !== id));
       toast({
         title: "Success",
         description: "Candidate removed from selection",
-      })
+      });
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to remove candidate. Please try again.",
+        description:
+          err instanceof Error ? err.message : "Failed to remove candidate",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   // Handle show candidate details
   const handleShowDetails = (candidate: Candidate) => {
-    setSelectedCandidate(candidate)
-    setDialogOpen(true)
-  }
+    setSelectedCandidate(candidate);
+    setDialogOpen(true);
+  };
 
   // Handle refresh
   const handleRefresh = () => {
-    setRefreshTrigger((prev) => prev + 1)
-  }
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   return (
     <main className="container mx-auto p-4">
@@ -94,7 +109,11 @@ export default function SelectedCandidates() {
           <h1 className="text-3xl font-bold">Selected Candidates</h1>
         </div>
         <Button variant="outline" onClick={handleRefresh} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
           Refresh
         </Button>
       </div>
@@ -132,8 +151,12 @@ export default function SelectedCandidates() {
       )}
 
       {selectedCandidate && (
-        <CandidateDialog candidate={selectedCandidate} open={dialogOpen} onOpenChange={setDialogOpen} />
+        <CandidateDialog
+          candidate={selectedCandidate}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
       )}
     </main>
-  )
+  );
 }

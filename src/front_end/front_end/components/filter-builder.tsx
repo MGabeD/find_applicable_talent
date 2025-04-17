@@ -274,9 +274,13 @@ export function FilterBuilder({ onApplyFilters }: FilterBuilderProps) {
               )}
               <Button
                 size="icon"
-                variant="outline"
                 onClick={addFilter}
-                className={buttonClicked ? "animate-ping-once" : ""}
+                disabled={!isReadyToAdd}
+                className={`transition-colors ${
+                  isReadyToAdd
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-green-100 text-green-400 cursor-not-allowed"
+                } ${buttonClicked ? "animate-ping-once" : ""}`}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -332,20 +336,23 @@ export function FilterBuilder({ onApplyFilters }: FilterBuilderProps) {
       </CardContent>
       <CardFooter className="flex gap-2">
         <Button
-          variant={isReadyToAdd ? "default" : "outline"}
+          variant={filters.length > 0 ? "default" : "outline"}
           className={
-            isReadyToAdd
+            filters.length > 0
               ? "flex-1 bg-primary text-white"
               : "flex-1 bg-muted text-muted-foreground"
           }
           onClick={applyFilters}
-          disabled={!isReadyToAdd}
+          disabled={filters.length === 0}
         >
           Apply Filters
         </Button>
         <Button
-          className="flex-1"
-          variant="destructive"
+          className={`flex-1 transition-colors ${
+            filters.length > 0
+              ? "bg-red-600 text-white hover:bg-red-700"
+              : "bg-red-100 text-red-400 cursor-not-allowed"
+          }`}
           onClick={clearFilters}
           disabled={filters.length === 0}
         >

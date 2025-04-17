@@ -222,7 +222,8 @@ class CandidateList:
             f = build_filter_functions(
                 path=spec['path'],
                 operator_key=spec['operator'],
-                target_value=spec['value']
+                target_value=spec['value'],
+                invert=spec['invert']
             )
             filter_funcs.append(f)
 

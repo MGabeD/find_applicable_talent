@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException, Query, status, Body, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -26,7 +26,8 @@ app.state.candidates = CandidateList(path_to_submissions=str(DATA_PATH))
 class FilterSpec(BaseModel):
     path: str
     operator: str
-    value: Union[str, int, float, bool]
+    value: Union[str, int, float, bool, datetime]
+    invert: bool = False
 
 
 FilterSpecList = TypeAdapter(List[FilterSpec])          
@@ -41,13 +42,14 @@ def list_candidates(
     path: Optional[str] = Query(None),
     operator: Optional[str] = Query(None),
     value: Optional[str] = Query(None),
+    invert: Optional[bool] = Query(False),
     fresh: bool = Query(False, alias="from_fresh_candidates"),
     store: CandidateList = Depends(get_store),
 ):
     logger.info(f"Listing candidates with path: {path}, operator: {operator}, value: {value}, fresh: {fresh}")
     logger.info(f"Have {len(store.candidates)} candidates")
     if all(p is not None for p in (path, operator, value)):
-        spec = [{"path": path, "operator": operator, "value": value}]
+        spec = [{"path": path, "operator": operator, "value": value, "invert": invert}]
         logger.info(f"Filtering candidates with spec: {spec}")
         data = store.dynamic_filters(spec, from_fresh_candidates=fresh)
         logger.info(f"Have {len(data)} candidates after filtering")
@@ -85,7 +87,6 @@ def delete_candidate(candidate_id: str, store: CandidateList = Depends(get_store
 
 @app.post("/candidates/reload", status_code=status.HTTP_202_ACCEPTED)
 def reload_candidates(path: Optional[str] = Body(None, embed=True)):
-    # hot‑swap the in‑memory index atomically
     with app.state.lock:
         app.state.candidates = CandidateList(path_to_submissions=path or str(DATA_PATH))
     return {"detail": "candidates reloaded"}

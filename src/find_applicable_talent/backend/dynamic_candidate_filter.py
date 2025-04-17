@@ -1,4 +1,5 @@
 from typing import List
+from datetime import datetime
 import operator
 from find_applicable_talent.backend.util.logger import get_logger
 
@@ -60,6 +61,31 @@ def get_values_by_path(obj, path: str):
 
 def safe_compare(value, target_value, op):
     try:
+        if (isinstance(value, str) and value in ["true", "false"]) or (isinstance(target_value, str) and target_value in ["true", "false"]):
+            def to_bool(v):
+                if isinstance(v, bool):
+                    return v
+                if v.lower() == "true":
+                    return True
+                return False
+            value = to_bool(value)
+            target_value = to_bool(target_value)
+            return op(value, target_value)
+        if isinstance(value, datetime) or isinstance(target_value, datetime):
+            def to_dt(v):
+                if isinstance(v, datetime):
+                    return v
+                if isinstance(v, str):
+                    try:
+                        return datetime.fromisoformat(v)
+                    except ValueError:
+                        raise ValueError(f"Invalid datetime string: {v}")
+                raise TypeError(f"Cannot convert {v} to datetime")
+            value = to_dt(value)
+            target_value = to_dt(target_value)
+            return op(value, target_value)
+        if isinstance(value, float) or isinstance(target_value, float):
+            return op(float(value), float(target_value))
         if isinstance(value, str):
             value = "".join(value.lower().split())
         if isinstance(target_value, str):
@@ -70,7 +96,7 @@ def safe_compare(value, target_value, op):
         return False
 
 
-def build_filter_functions(path: str, operator_key: str, target_value):
+def build_filter_functions(path: str, operator_key: str, target_value, invert: bool = False):
     if operator_key not in OPERATORS:
         raise ValueError(f"Invalid operator: {operator_key}")
     
@@ -80,7 +106,6 @@ def build_filter_functions(path: str, operator_key: str, target_value):
         values = get_values_by_path(candidate, path)
         if not values:
             return False
-        
         if operator_key == "contains":
             return any(safe_compare(value, target_value, op) for value in values)
         elif operator_key == "in":
@@ -88,6 +113,8 @@ def build_filter_functions(path: str, operator_key: str, target_value):
         else:
             return any(safe_compare(value, target_value, op) for value in values)
     
+    if invert:
+        return lambda candidate: not filter_function(candidate)
     return filter_function
 
 

@@ -1,0 +1,46 @@
+[build-system]
+build-backend = 'setuptools.build_meta'
+requires = [
+    "setuptools >= 48",
+    "setuptools_scm[toml] >= 4",
+    "setuptools_scm_git_archive",
+]
+
+
+[project]
+
+name = "find_applicable_talent"
+description = "making quick application < 1 day"
+
+authors = [
+    { name = "Gabe Denton", email = "mason.g.denton@vanderbilt.edu" },
+]
+
+
+requires-python = ">= 3.10, < 3.11"
+
+dynamic = [
+    "version", # handled by setuptools_scm, see at the end
+]
+
+dependencies = [
+  "fastapi>=0.110,<1.0",
+  "uvicorn[standard]>=0.29",
+  "pydantic>=2.6"    
+]
+
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+namespaces = true
+include = [
+    "find_applicable_talent*",
+    "tests*",
+]
+
+[tool.setuptools.package-data]
+"find_applicable_talent" = ["version.txt", "**/*.toml"]
+
+[tool.setuptools_scm]
+write_to = "src/find_applicable_talent/version.txt"
+git_describe_command = "git describe --tags --dirty --match 'v*' --abbrev=8"

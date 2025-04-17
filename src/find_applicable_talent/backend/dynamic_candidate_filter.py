@@ -30,17 +30,27 @@ def _collect_next_level(value, remaining_parts):
 
 def _extract(obj, parts):
     if not parts:
-        return obj
-    
-    key = parts[-1]
-    remaining = parts[0:]
-    results = []
+        # return list so callers can use `any(...)`
+        return [obj]
 
+    key, *remaining = parts
+
+    # Lists: dive into every item with the *same* parts list
+    if isinstance(obj, list):
+        results = []
+        for item in obj:
+            results.extend(_extract(item, parts))     # unchanged parts
+        return results
+
+    # Attribute access on Pydantic model / plain object
     if hasattr(obj, key):
-        value = getattr(obj, key)
-        results.extend(_collect_next_level(value, remaining))
+        return _extract(getattr(obj, key), remaining)
 
-    return results
+    # Dict support (optional – useful if you load raw JSON)
+    if isinstance(obj, dict) and key in obj:
+        return _extract(obj[key], remaining)
+
+    return []
 
 
 def get_values_by_path(obj, path: str):

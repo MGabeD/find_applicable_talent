@@ -4,18 +4,20 @@ from datetime import datetime
 import json
 import os
 import re
+import uuid
 from dynamic_candidate_filter import build_filter_functions
+from pathlib import Path
+
+
+BASE_DIR = Path(__file__).parent.resolve()
+DATA_PATH = BASE_DIR / "data" / "data.json"
+
 
 class WorkExperience(BaseModel):
-    company_name: Optional[str] = None
+    company: Optional[str] = None
     roleName: Optional[str] = None
 
-    # Note: your JSON has "company" not "company_name".
-    # We'll accept both names in the constructor below.
     def __init__(self, **data):
-        # If "company" is present in data, rename to "company_name"
-        if 'company' in data:
-            data['company_name'] = data.pop('company')
         super().__init__(**data)
 
 
@@ -28,6 +30,7 @@ class Degree(BaseModel):
     endDate: Optional[datetime] = None
     originalSchool: Optional[str] = None
     isTop50: bool = False
+    isTop25: bool = False
 
     def __init__(self, **data):
         # Parse gpa from string if needed
@@ -73,8 +76,39 @@ class Degree(BaseModel):
 class Education(BaseModel):
     highest_level: Optional[str] = None
     degrees: Optional[List[Degree]] = None
+    most_recent_end_date: Optional[datetime] = None
+    most_recent_gpa: Optional[float] = None
+
+    def __init__(self, **data):
+        raw_degrees = data.get("degrees", [])
+        degree_objs = [d if isinstance(d, Degree) else Degree(**d) for d in raw_degrees]
+        
+        most_recent_end = None
+        most_recent_gpa = None
+
+        if degree_objs:
+            # Sort by endDate descending, treating None as datetime.min
+            sorted_degrees = sorted(
+                degree_objs,
+                key=lambda d: d.endDate or datetime.min,
+                reverse=True
+            )
+            for deg in sorted_degrees:
+                if not most_recent_end and deg.endDate:
+                    most_recent_end = deg.endDate
+                if not most_recent_gpa and deg.gpa is not None:
+                    most_recent_gpa = deg.gpa
+                if most_recent_end and most_recent_gpa:
+                    break
+
+        data['degrees'] = degree_objs
+        data['most_recent_end_date'] = most_recent_end
+        data['most_recent_gpa'] = most_recent_gpa
+
+        super().__init__(**data)
 
 class Candidate(BaseModel):
+    id: str
     name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -87,6 +121,10 @@ class Candidate(BaseModel):
     skills: Optional[List[str]] = None
 
     def __init__(self, **data):
+        # Generate a unique ID if one isn't provided
+        if 'id' not in data:
+            data['id'] = str(uuid.uuid4())
+            
         # If there's a date-like field for submitted_at, parse it
         submitted_at_value = data.get('submitted_at', None)
         if isinstance(submitted_at_value, str):
@@ -97,10 +135,14 @@ class Candidate(BaseModel):
 
 
 class CandidateList:
-    def __init__(self, path_to_submissions: str):
+    def __init__(self, path_to_submissions: str = str(DATA_PATH)):
         self.path_to_submissions = path_to_submissions
         self.candidates = []
+        self.selected_candidates = []
+        self.filtered_candidates = []
+        self._load_candidates()
 
+    def _load_candidates(self):
         with open(self.path_to_submissions, 'r') as f:
             submissions = json.load(f)
 
@@ -137,10 +179,8 @@ class CandidateList:
 
             latest_grad_year = max(numeric_end_dates)
 
-# MARK: MAYBE illegal tot have this one
-            # # 2. Must not have graduated before 2010
-            # if latest_grad_year < 2010:
-            #     continue
+            if latest_grad_year < 2000:
+                continue
 
             # 3. Must not have more than 10 total jobs
             jobs_count = 0
@@ -163,13 +203,20 @@ class CandidateList:
 
         return filtered
     
+    def reload_candidates(self, path_to_submissions: str = str(DATA_PATH)):
+        self.path_to_submissions = path_to_submissions
+        self.candidates = []
+        self.selected_candidates = []
+        self.filtered_candidates = []
+        self._load_candidates()
+    
     def dynamic_simple_filters(self, filter_function: Callable[[Candidate], bool], inplace:bool = True) -> List[Candidate]:
         res = [candidate for candidate in self.candidates if filter_function(candidate)]
         if inplace:
             self.candidates = res
         return res
     
-    def dynamic_filters(self, filter_spec_list: List[dict]) -> List[Candidate]:
+    def dynamic_filters(self, filter_spec_list: List[dict], from_fresh_candidates: bool = True) -> List[Candidate]:
         filter_funcs = []
         for spec in filter_spec_list:
             f = build_filter_functions(
@@ -181,25 +228,56 @@ class CandidateList:
 
         def pass_all_filters(candidate) -> bool:
             return all(f(candidate) for f in filter_funcs)
+        
+        if from_fresh_candidates:
+            self.filtered_candidates = [c for c in self.candidates if pass_all_filters(c)]
+        else:
+            self.filtered_candidates = [c for c in self.filtered_candidates if pass_all_filters(c)]
 
-        return [c for c in self.candidates if pass_all_filters(c)]
-
+        return self.filtered_candidates
+    
     def get_candidates(self) -> List[Candidate]:
         return self.candidates
+    
+    def get_candidate_by_id(self, candidate_id: str) -> Optional[Candidate]:
+        for candidate in self.candidates:
+            if candidate.id == candidate_id:
+                return candidate    
+        return None
+    
+    def remove_candidate_by_id(self, candidate_id: str) -> bool:
+        for candidate in self.filtered_candidates:
+            if candidate.id == candidate_id:
+                self.filtered_candidates.remove(candidate)
 
-
-
+        for candidate in self.candidates:
+            if candidate.id == candidate_id:
+                self.candidates.remove(candidate)
+                return True
+        return False
     
 
+CANDIDATE_LIST = CandidateList(path_to_submissions=str(DATA_PATH))
 
-CANDIDATE_LIST = CandidateList(path_to_submissions="data/data.json")
+
+
+
 if __name__ == "__main__":
     print(len(CANDIDATE_LIST.candidates))
-    filter_spec = {
-        "path": "location",
-        "operator": "==",
-        "value": "Philadelphia"
-    }
+    # filter_spec = {
+    #     "path": "location",
+    #     "operator": "==",
+    #     "value": "Philadelphia"
+    # }
 
-    matching_candidates = CANDIDATE_LIST.dynamic_filters([filter_spec])
-    print(len(matching_candidates))
+    # matching_candidates = CANDIDATE_LIST.dynamic_filters([filter_spec])
+    # print(len(matching_candidates))
+
+    filter_spec2 = {
+        "path": "work_experiences.roleName",
+        "operator": "contains",
+        "value": "Engineer"
+    }
+    matching_candidates2 = CANDIDATE_LIST.dynamic_filters([filter_spec2])
+    print(len(matching_candidates2))
+

@@ -1,6 +1,6 @@
 from typing import List
 import operator
-from util.logger import get_logger
+from find_applicable_talent.backend.util.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -60,6 +60,10 @@ def get_values_by_path(obj, path: str):
 
 def safe_compare(value, target_value, op):
     try:
+        if isinstance(value, str):
+            value = "".join(value.lower().split())
+        if isinstance(target_value, str):
+            target_value = "".join(target_value.lower().split())
         return op(value, target_value)
     except Exception as e:
         logger.error(f"Error comparing {value} and {target_value} with {op}: {e}")

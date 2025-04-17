@@ -1,18 +1,15 @@
 from typing import List, Dict, Optional, Union, Callable
+from find_applicable_talent.backend.util.logger import get_logger
 from pydantic import BaseModel
 from datetime import datetime
 import json
 import os
 import re
 import uuid
-from dynamic_candidate_filter import build_filter_functions
-from pathlib import Path
+from find_applicable_talent.backend.dynamic_candidate_filter import build_filter_functions
+from find_applicable_talent.backend import DATA_PATH
 
-
-BASE_DIR = Path(__file__).parent.resolve()
-DATA_PATH = BASE_DIR / "data" / "data.json"
-
-
+logger = get_logger(__name__)
 class WorkExperience(BaseModel):
     company: Optional[str] = None
     roleName: Optional[str] = None
@@ -255,14 +252,37 @@ class CandidateList:
                 self.candidates.remove(candidate)
                 return True
         return False
+
+    def select_candidate_by_id(self, candidate_id: str) -> bool:
+        logger.info(f"Selecting candidate {candidate_id}")
+        # logger.info(f"Have candidates: {self.candidates}")
+        candidate = self.get_candidate_by_id(candidate_id)
+        if candidate is None:
+            return False
+        for c in self.selected_candidates:
+            if c.id == candidate_id:
+                logger.info(f"Candidate {candidate_id} already in selected candidates")
+                return True
+            
+        logger.info(f"Adding candidate {candidate.id} to selected candidates")
+        self.selected_candidates.append(candidate)
+        return True
     
+    def remove_selected_candidate_by_id(self, candidate_id: str) -> bool:
+        logger.info(f"Have selected candidates: { ', '.join(s.id for s in self.selected_candidates) }")  
+        for candidate in self.selected_candidates:
+            if candidate.id == candidate_id:
+                self.selected_candidates.remove(candidate)
+                return True
+        return False
 
-CANDIDATE_LIST = CandidateList(path_to_submissions=str(DATA_PATH))
-
-
+    def get_selected_candidates(self) -> List[Candidate]:
+        logger.info(f"Have selected candidates: { ', '.join(s.id for s in self.selected_candidates) }")
+        return self.selected_candidates
 
 
 if __name__ == "__main__":
+    CANDIDATE_LIST = CandidateList(path_to_submissions=str(DATA_PATH))
     print(len(CANDIDATE_LIST.candidates))
     # filter_spec = {
     #     "path": "location",
@@ -272,12 +292,16 @@ if __name__ == "__main__":
 
     # matching_candidates = CANDIDATE_LIST.dynamic_filters([filter_spec])
     # print(len(matching_candidates))
-
-    filter_spec2 = {
-        "path": "work_experiences.roleName",
-        "operator": "contains",
-        "value": "Engineer"
-    }
-    matching_candidates2 = CANDIDATE_LIST.dynamic_filters([filter_spec2])
-    print(len(matching_candidates2))
+    spec = [{"path": "location", "operator": "==", "value": "Philadelphia"}]
+    #      [{'path': 'location', 'operator': '==', 'value': 'Philadelphia'}]
+    print(f"Filtering candidates with spec: {spec}")
+    data = CANDIDATE_LIST.dynamic_filters(spec, from_fresh_candidates=True)
+    print(len(data))
+    # filter_spec2 = {
+    #     "path": "work_experiences.roleName",
+    #     "operator": "contains",
+    #     "value": "Engineer"
+    # }
+    # matching_candidates2 = CANDIDATE_LIST.dynamic_filters([filter_spec2])
+    # print(len(matching_candidates2))
 

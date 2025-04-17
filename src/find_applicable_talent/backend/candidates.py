@@ -138,6 +138,7 @@ class CandidateList:
         self.selected_candidates = []
         self.filtered_candidates = []
         self._load_candidates()
+        self.filtered_candidates = self.candidates.copy()
 
     def _load_candidates(self):
         with open(self.path_to_submissions, 'r') as f:
@@ -206,6 +207,8 @@ class CandidateList:
         self.selected_candidates = []
         self.filtered_candidates = []
         self._load_candidates()
+        self.filtered_candidates = self.candidates.copy()
+
     
     def dynamic_simple_filters(self, filter_function: Callable[[Candidate], bool], inplace:bool = True) -> List[Candidate]:
         res = [candidate for candidate in self.candidates if filter_function(candidate)]

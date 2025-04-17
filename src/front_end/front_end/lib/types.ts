@@ -4,6 +4,7 @@ export interface Filter {
   path: string;
   operator: Operator;
   value: string;
+  invert?: boolean;
 }
 
 export interface WorkExperience {

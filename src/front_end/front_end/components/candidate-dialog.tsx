@@ -12,17 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { Candidate, WorkExperience, Degree } from "@/lib/types";
 
-/**
- * CandidateDialog
- * ---------------
- * Displays **all** information we have for a single candidate in a scroll‑able modal.
- *
- * Props
- * -----
- * `candidate` – the `Candidate` object whose details we want to inspect.
- * `open`      – boolean – whether the dialog should be visible.
- * `onOpenChange` – callback to control outside state.
- */
 interface CandidateDialogProps {
   candidate: Candidate;
   open: boolean;
@@ -37,22 +26,22 @@ export function CandidateDialog({
   /* -------------------------------------------------------------------- */
   /* Helpers                                                              */
   /* -------------------------------------------------------------------- */
-
   const formatDate = (date?: string) => {
     if (!date) return "—";
     const parsed = new Date(date);
     return isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString();
   };
 
-  const formatSalary = (amount?: number, workType?: string) => {
-    if (amount === undefined) return "—";
-    const formatter = new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    });
-    return `${formatter.format(amount)} ${workType ?? ""}`.trim();
-  };
+  const currency = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+
+  const formatSalary = (amount?: number, workType?: string) =>
+    amount === undefined
+      ? "—"
+      : `${currency.format(amount)} ${workType ?? ""}`.trim();
 
   const hasExperience = (candidate.work_experiences?.length ?? 0) > 0;
   const hasDegrees = (candidate.education?.degrees?.length ?? 0) > 0;
@@ -60,19 +49,20 @@ export function CandidateDialog({
   /* -------------------------------------------------------------------- */
   /* Render                                                               */
   /* -------------------------------------------------------------------- */
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Tailwind: responsive width & scrollable body */}
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        {/* ---------------------------------------------------------------- */}
+        {/* Header                                                          */}
+        {/* ---------------------------------------------------------------- */}
         <DialogHeader>
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
               <AvatarImage
                 src="/placeholder.svg"
-                alt={candidate?.name || "Candidate"}
+                alt={candidate.name ?? "Candidate"}
               />
-              <AvatarFallback>{candidate?.name?.charAt(0)}</AvatarFallback>
+              <AvatarFallback>{candidate.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
               <DialogTitle className="text-2xl leading-tight">
@@ -176,21 +166,19 @@ export function CandidateDialog({
         {hasExperience && (
           <section className="space-y-4 my-6">
             <h3 className="text-lg font-semibold">Work Experience</h3>
-            {candidate.work_experiences!.map(
-              (exp: WorkExperience, idx: number) => (
-                <div
-                  key={`${exp.company}-${idx}`}
-                  className="border rounded-lg p-4 space-y-1"
-                >
-                  <div className="font-semibold text-sm">
-                    {exp.roleName ?? "Unknown Role"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {exp.company ?? "Unknown Company"}
-                  </div>
+            {candidate.work_experiences!.map((exp: WorkExperience, idx) => (
+              <div
+                key={`${exp.company}-${idx}`}
+                className="border rounded-lg p-4 space-y-1"
+              >
+                <div className="font-semibold text-sm">
+                  {exp.roleName ?? "Unknown Role"}
                 </div>
-              )
-            )}
+                <div className="text-xs text-muted-foreground">
+                  {exp.company ?? "Unknown Company"}
+                </div>
+              </div>
+            ))}
           </section>
         )}
 
@@ -207,45 +195,49 @@ export function CandidateDialog({
           </div>
 
           {hasDegrees ? (
-            candidate.education!.degrees!.map((degree: Degree, idx: number) => (
+            candidate.education!.degrees!.map((degree: Degree, idx) => (
               <div
-                key={`${degree.school}-${degree.degree}-${idx}`}
-                className="border rounded-lg p-4 space-y-2"
+                key={`${degree.school}-${idx}`}
+                className="border rounded-lg p-4 space-y-2 text-sm"
               >
-                <div className="font-semibold">
-                  {degree.degree ?? "Unknown Degree"}
-                  {degree.subject && ` in ${degree.subject}`}
+                {/* Degree & Subject */}
+                <div>
+                  <span className="font-medium">Degree:</span>{" "}
+                  {degree.degree ?? "—"}
                 </div>
-                {degree.school && (
-                  <div>
-                    <span className="font-medium">School:</span> {degree.school}
-                    {(degree.isTop50 || degree.isTop25) && (
-                      <>
-                        {degree.isTop50 && (
-                          <Badge className="ml-2" variant="outline">
-                            Top 50
-                          </Badge>
-                        )}
-                        {degree.isTop25 && (
-                          <Badge className="ml-1" variant="outline">
-                            Top 25
-                          </Badge>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
+                <div>
+                  <span className="font-medium">Subject:</span>{" "}
+                  {degree.subject ?? "—"}
+                </div>
+                {/* School & Top‑Rank Flags */}
+                <div>
+                  <span className="font-medium">School:</span>{" "}
+                  {degree.school ?? "—"}
+                  {degree.isTop50 && (
+                    <Badge className="ml-2" variant="outline">
+                      Top 50
+                    </Badge>
+                  )}
+                  {degree.isTop25 && (
+                    <Badge className="ml-1" variant="outline">
+                      Top 25
+                    </Badge>
+                  )}
+                </div>
+                {/* GPA */}
                 {degree.gpa !== undefined && (
                   <div>
                     <span className="font-medium">GPA:</span> {degree.gpa}
                   </div>
                 )}
+                {/* Duration */}
                 <div>
                   <span className="font-medium">Duration:</span>{" "}
                   {`${formatDate(degree.startDate)} – ${formatDate(
                     degree.endDate
                   )}`}
                 </div>
+                {/* Original School */}
                 {degree.originalSchool &&
                   degree.originalSchool !== degree.school && (
                     <div>
@@ -253,6 +245,11 @@ export function CandidateDialog({
                       {degree.originalSchool}
                     </div>
                   )}
+                {/* Explicit Flags */}
+                <div className="text-muted-foreground">
+                  Top 50 School: {degree.isTop50 ? "Yes" : "No"} | Top 25
+                  School: {degree.isTop25 ? "Yes" : "No"}
+                </div>
               </div>
             ))
           ) : (

@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { Filter, Operator } from "@/lib/types";
+import { operatorOptions, pathOptions } from "@/lib/paths_util";
 
 interface FilterBuilderProps {
   onApplyFilters: (filters: Filter[]) => void;
@@ -52,6 +53,7 @@ export function FilterBuilder({
     path: "",
     operator: "==",
     value: "",
+    invert: false,
   });
   const [currentValueType, setCurrentValueType] = useState<
     "text" | "number" | "boolean" | "date"
@@ -68,8 +70,11 @@ export function FilterBuilder({
           ? currentFilter.value || "false"
           : currentFilter.value;
 
-      setFilters([...filters, { ...currentFilter, value }]);
-      setCurrentFilter({ path: "", operator: "==", value: "" });
+      setFilters([
+        ...filters,
+        { ...currentFilter, value, invert: currentFilter.invert ?? false },
+      ]);
+      setCurrentFilter({ path: "", operator: "==", value: "", invert: false });
     }
     setButtonClicked(true);
     setTimeout(() => setButtonClicked(false), 300);
@@ -95,74 +100,6 @@ export function FilterBuilder({
     setTimeout(() => setFiltersAppliedClicked(false), 300);
     setActiveFilters(filters);
   };
-
-  // Organize paths by category for better UX
-  const pathOptions = [
-    // Basic info
-    { value: "name", label: "Name", type: "text" },
-    { value: "email", label: "Email", type: "text" },
-    { value: "phone", label: "Phone", type: "text" },
-    { value: "location", label: "Location", type: "text" },
-    { value: "submitted_at", label: "Submitted At", type: "date" },
-    { value: "work_availability", label: "Work Availability", type: "text" },
-
-    // Salary
-    {
-      value: "annual_salary_expectation.amount",
-      label: "Salary Amount",
-      type: "number",
-    },
-    {
-      value: "annual_salary_expectation.currency",
-      label: "Salary Currency",
-      type: "text",
-    },
-
-    // Skills
-    { value: "skills", label: "Skills", type: "text" },
-
-    // Education
-    {
-      value: "education.highest_level",
-      label: "Highest Education Level",
-      type: "text",
-    },
-    { value: "education.degrees.degree", label: "Degree", type: "text" },
-    { value: "education.degrees.subject", label: "Subject", type: "text" },
-    { value: "education.degrees.school", label: "School", type: "text" },
-    { value: "education.degrees.gpa", label: "GPA", type: "number" },
-    {
-      value: "education.degrees.startDate",
-      label: "Education Start Date",
-      type: "date",
-    },
-    {
-      value: "education.degrees.endDate",
-      label: "Education End Date",
-      type: "date",
-    },
-    {
-      value: "education.degrees.originalSchool",
-      label: "Original School",
-      type: "text",
-    },
-    {
-      value: "education.degrees.isTop50",
-      label: "Is Top 50 School",
-      type: "boolean",
-    },
-  ];
-
-  const operatorOptions = [
-    { value: "==", label: "==" },
-    { value: "!=", label: "!=" },
-    { value: ">", label: ">" },
-    { value: ">=", label: ">=" },
-    { value: "<", label: "<" },
-    { value: "<=", label: "<=" },
-    { value: "in", label: "in" },
-    { value: "contains", label: "contains" },
-  ];
 
   // Filter operators based on the current value type
   const filteredOperators = operatorOptions.filter((op) => {
@@ -220,7 +157,16 @@ export function FilterBuilder({
                   <SelectTrigger>
                     <SelectValue placeholder="Path" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent
+                    className="max-h-60 overflow-y-auto"
+                    style={{
+                      overflowY: "auto",
+                      WebkitOverflowScrolling: "touch",
+                    }}
+                    side="bottom"
+                    sideOffset={4}
+                    avoidCollisions={false}
+                  >
                     <SelectItem value="placeholder" disabled>
                       Select a field
                     </SelectItem>
@@ -254,56 +200,73 @@ export function FilterBuilder({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-2">
-                {currentValueType === "boolean" ? (
-                  <div className="flex items-center space-x-2 w-full">
-                    <Checkbox
-                      id="isTrue"
-                      checked={currentFilter.value === "true"}
-                      onCheckedChange={(checked) =>
+              <div className="flex gap-2 items-center">
+                <div className="flex-1">
+                  {currentValueType === "boolean" ? (
+                    <div className="flex items-center space-x-2 w-full">
+                      <Checkbox
+                        id="isTrue"
+                        checked={currentFilter.value === "true"}
+                        onCheckedChange={(checked) =>
+                          setCurrentFilter({
+                            ...currentFilter,
+                            value: checked ? "true" : "false",
+                          })
+                        }
+                      />
+                      <Label htmlFor="isTrue">True</Label>
+                    </div>
+                  ) : currentValueType === "date" ? (
+                    <Input
+                      type="date"
+                      value={currentFilter.value}
+                      onChange={(e) =>
                         setCurrentFilter({
                           ...currentFilter,
-                          value: checked ? "true" : "false",
+                          value: e.target.value,
                         })
                       }
                     />
-                    <Label htmlFor="isTrue">True</Label>
-                  </div>
-                ) : currentValueType === "date" ? (
-                  <Input
-                    type="date"
-                    value={currentFilter.value}
-                    onChange={(e) =>
+                  ) : currentValueType === "number" ? (
+                    <Input
+                      type="number"
+                      placeholder="Value"
+                      value={currentFilter.value}
+                      onChange={(e) =>
+                        setCurrentFilter({
+                          ...currentFilter,
+                          value: e.target.value,
+                        })
+                      }
+                    />
+                  ) : (
+                    <Input
+                      placeholder="Value"
+                      value={currentFilter.value}
+                      onChange={(e) =>
+                        setCurrentFilter({
+                          ...currentFilter,
+                          value: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+                </div>
+
+                {/* Invert checkbox */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="invert"
+                    checked={currentFilter.invert ?? false}
+                    onCheckedChange={(checked) =>
                       setCurrentFilter({
                         ...currentFilter,
-                        value: e.target.value,
+                        invert: checked === true,
                       })
                     }
                   />
-                ) : currentValueType === "number" ? (
-                  <Input
-                    type="number"
-                    placeholder="Value"
-                    value={currentFilter.value}
-                    onChange={(e) =>
-                      setCurrentFilter({
-                        ...currentFilter,
-                        value: e.target.value,
-                      })
-                    }
-                  />
-                ) : (
-                  <Input
-                    placeholder="Value"
-                    value={currentFilter.value}
-                    onChange={(e) =>
-                      setCurrentFilter({
-                        ...currentFilter,
-                        value: e.target.value,
-                      })
-                    }
-                  />
-                )}
+                  <Label htmlFor="invert">Invert</Label>
+                </div>
                 <Button
                   size="icon"
                   onClick={addFilter}
@@ -340,6 +303,7 @@ export function FilterBuilder({
                     >
                       <span>
                         {pathLabel} {operatorLabel} "{filter.value}"
+                        {filter.invert && " (Inverted)"}
                       </span>
                       <Button
                         variant="ghost"

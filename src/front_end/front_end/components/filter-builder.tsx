@@ -39,6 +39,9 @@ export function FilterBuilder({
   const [filtersResetClicked, setFiltersResetClicked] = useState(false);
   const [filtersAppliedClicked, setFiltersAppliedClicked] = useState(false);
   const [filters, setFilters] = useState<Filter[]>(initialFilters ?? []);
+  const [activeFilters, setActiveFilters] = useState<Filter[]>(
+    initialFilters ?? []
+  );
 
   useEffect(() => {
     if (initialFilters) {
@@ -81,6 +84,7 @@ export function FilterBuilder({
   const clearFilters = () => {
     setFilters([]);
     setFiltersResetClicked(true);
+    setActiveFilters([]);
     onResetFilters();
     setTimeout(() => setFiltersResetClicked(false), 300);
   };
@@ -89,6 +93,7 @@ export function FilterBuilder({
     setFiltersAppliedClicked(true);
     onApplyFilters(filters);
     setTimeout(() => setFiltersAppliedClicked(false), 300);
+    setActiveFilters(filters);
   };
 
   // Organize paths by category for better UX
@@ -376,12 +381,12 @@ export function FilterBuilder({
           </Button>
           <Button
             className={`flex-1 transition-colors ${
-              filters.length > 0
+              activeFilters.length > 0
                 ? "bg-red-600 text-white hover:bg-red-700"
                 : "bg-red-100 text-red-400 cursor-not-allowed"
             } ${filtersResetClicked ? "animate-ping-once" : ""}`}
             onClick={clearFilters}
-            disabled={filters.length === 0}
+            disabled={activeFilters.length === 0}
           >
             Reset Filters
           </Button>

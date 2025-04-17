@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
@@ -17,6 +18,7 @@ export default function Home() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("candidates");
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(
     null
   );
@@ -207,6 +209,24 @@ export default function Home() {
     }
   };
 
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const columnCount = 3;
+
+  const rowVirtualizer = useVirtualizer({
+    count: Math.ceil(candidates.length / columnCount),
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 300,
+    overscan: 5,
+    enabled: activeTab === "candidates",
+  });
+
+  useEffect(() => {
+    if (activeTab === "candidates") {
+      requestAnimationFrame(() => rowVirtualizer.measure());
+    }
+  }, [activeTab, rowVirtualizer]);
+
   return (
     <main className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
@@ -226,7 +246,7 @@ export default function Home() {
         </div>
       </div>
 
-      <Tabs defaultValue="candidates">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="candidates">Candidates</TabsTrigger>
           <TabsTrigger value="filters">Filters</TabsTrigger>
@@ -253,16 +273,45 @@ export default function Home() {
               <p className="text-muted-foreground">No candidates found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[70vh] overflow-y-auto p-2">
-              {candidates.map((candidate) => (
-                <CandidatePanel
-                  key={candidate.id}
-                  candidate={candidate}
-                  onDelete={handleDelete}
-                  onSelect={handleSelect}
-                  onShowDetails={handleShowDetails}
-                />
-              ))}
+            <div ref={parentRef} className="max-h-[70vh] overflow-y-auto p-2">
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  position: "relative",
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const rowIndex = virtualRow.index;
+                  const itemsInRow = candidates.slice(
+                    rowIndex * columnCount,
+                    rowIndex * columnCount + columnCount
+                  );
+
+                  return (
+                    <div
+                      key={rowIndex}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2"
+                    >
+                      {itemsInRow.map((candidate) => (
+                        <CandidatePanel
+                          key={candidate.id}
+                          candidate={candidate}
+                          onDelete={handleDelete}
+                          onSelect={handleSelect}
+                          onShowDetails={handleShowDetails}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </TabsContent>

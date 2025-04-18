@@ -1,3 +1,5 @@
 .venv/*
+.env
+changelogs/*
 *.egg-info/
 __pycache__/

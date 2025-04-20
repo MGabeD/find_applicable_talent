@@ -20,8 +20,8 @@ python -m pip install -e .
 ```
 Next, navigate to the backend server and start it
 ```bash
-cd src/find_applicable_talent/backend
-uvicorn find_applicable_talent.backend.main:app --reload
+cd src/find_applicable_talent/backend_interface
+uvicorn find_applicable_talent.backend_interface.main:app --reload
 ```
 ### Playing with the application
 I created a logger which can write to both files and to console for the backend server and while I didn't de-clutter the code if you want to create new APIs it is very helpful for getting visibility and a clear history of where in the applications flow you are when edge cases occur. I suggest using it since its there and is better than printing. 

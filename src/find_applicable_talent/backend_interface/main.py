@@ -7,11 +7,14 @@ from pydantic import BaseModel, TypeAdapter
 from typing import List, Optional, Union
 from threading import RLock
 
-from find_applicable_talent.backend.candidates import CandidateList, Candidate
-from find_applicable_talent.backend.util.logger import get_logger
-from find_applicable_talent.backend import DATA_PATH
+from find_applicable_talent.core.candidate_list import CandidateList
+from find_applicable_talent.core.candidate import Candidate
+from find_applicable_talent.util.logger import get_logger
+from find_applicable_talent.core import DATA_PATH
+
 
 logger = get_logger(__name__)
+
 
 app = FastAPI(title="Candidate API", version="0.1.0")
 app.add_middleware(
@@ -117,3 +120,31 @@ def remove_selected_candidate(
 def list_selected_candidates(store: CandidateList = Depends(get_store)):
     logger.info(f"Listing selected candidates")
     return store.get_selected_candidates()
+
+@app.post("/candidates/reasoner/load", status_code=status.HTTP_202_ACCEPTED)
+def load_reasoner(store: CandidateList = Depends(get_store)):
+    """
+    Load the RecruitmentReasoner using selected candidates if any, otherwise from all candidates.
+    """
+    with app.state.lock:
+        store.load_reasoner()
+    return {"detail": "Reasoner initialized successfully."}
+
+@app.get("/candidates/reasoner/tagged", response_model=List[Candidate])
+def get_tagged_candidates(store: CandidateList = Depends(get_store)):
+    """
+    Return tagged candidates with reasoner annotations.
+    """
+    if store.round_robin_candidates is None:
+        raise HTTPException(400, "Reasoner has not been initialized. Call /candidates/reasoner/load first.")
+    return store.get_tagged_candidates()
+
+@app.post("/candidates/reasoner/set_filtered", status_code=202)
+def set_filtered_candidates_from_reasoner(store: CandidateList = Depends(get_store)):
+    """
+    Set filtered candidates list based on current tagged candidates.
+    """
+    if store.round_robin_candidates is None:
+        raise HTTPException(400, "Reasoner has not been initialized. Call /candidates/reasoner/load first.")
+    with app.state.lock:
+        store.set_filtered_candidates_from_reasoner()

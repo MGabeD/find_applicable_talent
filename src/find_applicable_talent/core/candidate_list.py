@@ -1,134 +1,14 @@
-from typing import List, Dict, Optional, Union, Callable
-from find_applicable_talent.backend.util.logger import get_logger
-from pydantic import BaseModel
-from datetime import datetime
+from typing import List, Dict, Optional, Callable
+import copy
 import json
-import os
-import re
-import uuid
-from find_applicable_talent.backend.dynamic_candidate_filter import build_filter_functions
-from find_applicable_talent.backend import DATA_PATH
+from find_applicable_talent.util.logger import get_logger
+from find_applicable_talent.core.round_robin_candidates import RecruitmentReasoner
+from find_applicable_talent.core.candidate import Candidate
+from find_applicable_talent.core.dynamic_candidate_filter import build_filter_functions
+from find_applicable_talent.core import DATA_PATH
+
 
 logger = get_logger(__name__)
-class WorkExperience(BaseModel):
-    company: Optional[str] = None
-    roleName: Optional[str] = None
-
-    def __init__(self, **data):
-        super().__init__(**data)
-
-
-class Degree(BaseModel):
-    degree: Optional[str] = None
-    subject: Optional[str] = None
-    school: Optional[str] = None
-    gpa: Optional[float] = None
-    startDate: Optional[datetime] = None
-    endDate: Optional[datetime] = None
-    originalSchool: Optional[str] = None
-    isTop50: bool = False
-    isTop25: bool = False
-
-    def __init__(self, **data):
-        # Parse gpa from string if needed
-        gpa_value = data.get('gpa', None)
-        if isinstance(gpa_value, str):
-            # Example: "GPA 3.0-3.4" → we want 3.4
-            matches = re.findall(r'\d+\.\d+', gpa_value)
-            # If we got floats, take the last one
-            if matches:
-                data['gpa'] = float(matches[-1])  # last match
-            else:
-                data['gpa'] = None
-
-        start = data.get('startDate', None)
-        end = data.get('endDate', None)
-
-        # Handle startDate
-        if isinstance(start, str):
-            start_str = start.strip().lower()
-            if start_str == "present":
-                data['startDate'] = None
-            else:
-                # Attempt to parse as a year
-                try:
-                    data['startDate'] = datetime(int(start_str), 1, 1)
-                except ValueError:
-                    data['startDate'] = None
-
-        # Handle endDate
-        if isinstance(end, str):
-            end_str = end.strip().lower()
-            if end_str == "present":
-                data['endDate'] = None
-            else:
-                # Attempt to parse as a year
-                try:
-                    data['endDate'] = datetime(int(end_str), 1, 1)
-                except ValueError:
-                    data['endDate'] = None
-
-        super().__init__(**data)
-
-class Education(BaseModel):
-    highest_level: Optional[str] = None
-    degrees: Optional[List[Degree]] = None
-    most_recent_end_date: Optional[datetime] = None
-    most_recent_gpa: Optional[float] = None
-
-    def __init__(self, **data):
-        raw_degrees = data.get("degrees", [])
-        degree_objs = [d if isinstance(d, Degree) else Degree(**d) for d in raw_degrees]
-        
-        most_recent_end = None
-        most_recent_gpa = None
-
-        if degree_objs:
-            # Sort by endDate descending, treating None as datetime.min
-            sorted_degrees = sorted(
-                degree_objs,
-                key=lambda d: d.endDate or datetime.min,
-                reverse=True
-            )
-            for deg in sorted_degrees:
-                if not most_recent_end and deg.endDate:
-                    most_recent_end = deg.endDate
-                if not most_recent_gpa and deg.gpa is not None:
-                    most_recent_gpa = deg.gpa
-                if most_recent_end and most_recent_gpa:
-                    break
-
-        data['degrees'] = degree_objs
-        data['most_recent_end_date'] = most_recent_end
-        data['most_recent_gpa'] = most_recent_gpa
-
-        super().__init__(**data)
-
-class Candidate(BaseModel):
-    id: str
-    name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    location: Optional[str] = None
-    submitted_at: Optional[datetime] = None
-    work_availability: Optional[List[str]] = None
-    annual_salary_expectation: Optional[Dict[str, Union[int, str]]] = None
-    work_experiences: Optional[List[WorkExperience]] = None
-    education: Optional[Education] = None
-    skills: Optional[List[str]] = None
-
-    def __init__(self, **data):
-        # Generate a unique ID if one isn't provided
-        if 'id' not in data:
-            data['id'] = str(uuid.uuid4())
-            
-        # If there's a date-like field for submitted_at, parse it
-        submitted_at_value = data.get('submitted_at', None)
-        if isinstance(submitted_at_value, str):
-            data['submitted_at'] = datetime.strptime(
-                submitted_at_value, "%Y-%m-%d %H:%M:%S.%f"
-            )
-        super().__init__(**data)
 
 
 class CandidateList:
@@ -139,6 +19,7 @@ class CandidateList:
         self.filtered_candidates = []
         self._load_candidates()
         self.filtered_candidates = self.candidates.copy()
+        self.round_robin_candidates = None
 
     def _load_candidates(self):
         with open(self.path_to_submissions, 'r') as f:
@@ -209,7 +90,6 @@ class CandidateList:
         self._load_candidates()
         self.filtered_candidates = self.candidates.copy()
 
-    
     def dynamic_simple_filters(self, filter_function: Callable[[Candidate], bool], inplace:bool = True) -> List[Candidate]:
         res = [candidate for candidate in self.candidates if filter_function(candidate)]
         if inplace:
@@ -254,6 +134,11 @@ class CandidateList:
             if candidate.id == candidate_id:
                 self.filtered_candidates.remove(candidate)
 
+        if self.round_robin_candidates is not None:
+            if candidate_id in self.round_robin_candidates.available_candidates:
+                logger.info(f"Removing candidate {candidate_id} from round robin candidates")
+                del self.round_robin_candidates.available_candidates[candidate_id]
+
         for candidate in self.candidates:
             if candidate.id == candidate_id:
                 self.candidates.remove(candidate)
@@ -287,28 +172,20 @@ class CandidateList:
         logger.info(f"Have selected candidates: { ', '.join(s.id for s in self.selected_candidates) }")
         return self.selected_candidates
 
+    # MARK: - Reasoner
+    def load_reasoner(self):
+        if len(self.selected_candidates) > 0:
+            self.round_robin_candidates = RecruitmentReasoner(
+                candidates=self.selected_candidates
+            )
+        else:
+            self.round_robin_candidates = RecruitmentReasoner(
+                candidates=self.candidates
+            )
 
-if __name__ == "__main__":
-    CANDIDATE_LIST = CandidateList(path_to_submissions=str(DATA_PATH))
-    print(len(CANDIDATE_LIST.candidates))
-    # filter_spec = {
-    #     "path": "location",
-    #     "operator": "==",
-    #     "value": "Philadelphia"
-    # }
+    def set_filtered_candidates_from_reasoner(self):
+        self.filtered_candidates = copy.deepcopy(self.round_robin_candidates.tagged_candidates)
 
-    # matching_candidates = CANDIDATE_LIST.dynamic_filters([filter_spec])
-    # print(len(matching_candidates))
-    spec = [{"path": "location", "operator": "==", "value": "Philadelphia"}]
-    #      [{'path': 'location', 'operator': '==', 'value': 'Philadelphia'}]
-    print(f"Filtering candidates with spec: {spec}")
-    data = CANDIDATE_LIST.dynamic_filters(spec, from_fresh_candidates=True)
-    print(len(data))
-    # filter_spec2 = {
-    #     "path": "work_experiences.roleName",
-    #     "operator": "contains",
-    #     "value": "Engineer"
-    # }
-    # matching_candidates2 = CANDIDATE_LIST.dynamic_filters([filter_spec2])
-    # print(len(matching_candidates2))
+    def get_tagged_candidates(self) -> List[Candidate]:
+        return self.round_robin_candidates.tagged_candidates
 

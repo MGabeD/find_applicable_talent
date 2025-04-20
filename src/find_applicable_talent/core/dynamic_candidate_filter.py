@@ -1,9 +1,11 @@
 from typing import List
 from datetime import datetime
 import operator
-from find_applicable_talent.backend.util.logger import get_logger
+from find_applicable_talent.util.logger import get_logger
+
 
 logger = get_logger(__name__)
+
 
 OPERATORS = {
     "==": operator.eq,

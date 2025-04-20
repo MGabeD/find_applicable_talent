@@ -3,3 +3,4 @@
 changelogs/*
 *.egg-info/
 __pycache__/
+logs/

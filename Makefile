@@ -3,5 +3,5 @@ dev:
 		echo "ERROR: You must activate a Python virtual environment first."; \
 		exit 1; \
 	fi
-	pip install git+https://github.com/MGabeD/cli_git_changelog.git@v2.0.0
+	pip install git+https://github.com/MGabeD/cli_git_changelog.git@v2.0.1
 	python -m pip install -e .

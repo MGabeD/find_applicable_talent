@@ -19,7 +19,7 @@ class CandidateList:
         self.filtered_candidates = []
         self._load_candidates()
         self.filtered_candidates = self.candidates.copy()
-        self.round_robin_candidates = None
+        self.round_robin_candidates: Optional[RecruitmentReasoner] = None
 
     def _load_candidates(self):
         with open(self.path_to_submissions, 'r') as f:
@@ -136,8 +136,7 @@ class CandidateList:
 
         if self.round_robin_candidates is not None:
             if candidate_id in self.round_robin_candidates.available_candidates:
-                logger.info(f"Removing candidate {candidate_id} from round robin candidates")
-                del self.round_robin_candidates.available_candidates[candidate_id]
+                self.round_robin_candidates.delete_candidate(candidate_id)
 
         for candidate in self.candidates:
             if candidate.id == candidate_id:
@@ -173,7 +172,7 @@ class CandidateList:
         return self.selected_candidates
 
     # MARK: - Reasoner
-    def load_reasoner(self):
+    def reset_reasoner(self):
         if len(self.selected_candidates) > 0:
             self.round_robin_candidates = RecruitmentReasoner(
                 candidates=self.selected_candidates
@@ -183,9 +182,26 @@ class CandidateList:
                 candidates=self.candidates
             )
 
+    def load_reasoner(self):
+        if self.round_robin_candidates is not None:
+            return
+        self.reset_reasoner()
+
     def set_filtered_candidates_from_reasoner(self):
         self.filtered_candidates = copy.deepcopy(self.round_robin_candidates.tagged_candidates)
 
     def get_tagged_candidates(self) -> List[Candidate]:
         return self.round_robin_candidates.tagged_candidates
 
+    def get_roles(self) -> List[Optional[Dict[str, str]]]:
+        if self.round_robin_candidates is None:
+            return []
+        try:
+            res = [{"title": role.title, "justification": role.justification, "rubric": role.rubric} for role in self.round_robin_candidates.roles]
+            for role in res:
+                if role["rubric"] is None:
+                    return []
+            return res
+        except Exception as e:
+            logger.error(f"Error getting roles: {e}")
+            return []

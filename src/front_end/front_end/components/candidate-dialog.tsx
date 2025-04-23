@@ -68,6 +68,38 @@ export function CandidateDialog({
               <DialogTitle className="text-2xl leading-tight">
                 {candidate.name ?? "Unnamed Candidate"}
               </DialogTitle>
+              {candidate.reasoner_tags &&
+                candidate.reasoner_tags.length > 0 && (
+                  <>
+                    <section className="space-y-4 my-6">
+                      <h3 className="text-lg font-semibold">Suggested Roles</h3>
+                      {candidate.reasoner_tags.map((tag, idx) => (
+                        <div
+                          key={`${tag.role}-${idx}`}
+                          className="border rounded-lg p-4 space-y-2 bg-muted/50"
+                        >
+                          <div>
+                            <span className="font-medium">Suggested Role:</span>{" "}
+                            {tag.role}
+                          </div>
+                          <div>
+                            <span className="font-medium">
+                              Role Description:
+                            </span>{" "}
+                            {tag.justification}
+                          </div>
+                          <div>
+                            <span className="font-medium">
+                              Why We Think They're a Fit:
+                            </span>{" "}
+                            {tag.reason}
+                          </div>
+                        </div>
+                      ))}
+                    </section>
+                    <Separator />
+                  </>
+                )}
               <p className="text-muted-foreground text-sm">
                 {hasExperience
                   ? candidate.work_experiences!.length > 1

@@ -20,9 +20,9 @@ import type { Candidate } from "@/lib/types";
 
 interface CandidatePanelProps {
   candidate: Candidate;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
   onSelect?: (id: string) => void;
-  onShowDetails: (candidate: Candidate) => void;
+  onShowDetails?: (candidate: Candidate) => void;
   isSelected?: boolean;
 }
 
@@ -33,11 +33,6 @@ export function CandidatePanel({
   onShowDetails,
   isSelected = false,
 }: CandidatePanelProps) {
-  // Format date for display
-  // const formatDate = (dateString: string) => {
-  //   return new Date(dateString).toLocaleDateString()
-  // }
-
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center gap-4 pb-2">
@@ -58,9 +53,10 @@ export function CandidatePanel({
                   }`
                 : candidate.work_experiences[0].roleName ?? "Unknown"
               : "No experience"}
-          </p>{" "}
+          </p>
         </div>
       </CardHeader>
+
       <CardContent>
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1">
@@ -84,40 +80,47 @@ export function CandidatePanel({
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onDelete(candidate.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isSelected ? "Remove from selection" : "Delete candidate"}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onShowDetails(candidate)}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>View details</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <CardFooter className="flex justify-between">
+        {onDelete && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onDelete(candidate.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {isSelected ? "Remove from selection" : "Delete candidate"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {onShowDetails && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onShowDetails(candidate)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View details</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
         {!isSelected && onSelect && (
           <TooltipProvider>

@@ -36,6 +36,12 @@ export interface AnnualSalaryExpectation {
   pay: number;
 }
 
+export interface ReasonerTag {
+  role: string;
+  justification: string;
+  reason: string;
+}
+
 export interface Candidate {
   id: string;
   name?: string;
@@ -48,4 +54,5 @@ export interface Candidate {
   work_experiences?: WorkExperience[];
   education?: Education;
   skills?: string[];
+  reasoner_tags?: ReasonerTag[];
 }

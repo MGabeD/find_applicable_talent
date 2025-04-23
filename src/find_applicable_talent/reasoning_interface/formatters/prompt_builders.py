@@ -5,12 +5,12 @@ from find_applicable_talent.core.candidate import Candidate
 
 def build_role_ideation_prompt(startup_description: str) -> str:
     return (
-        "You are the founder of a newly funded, fast-moving software startup. You are currently the only employee.\n"
+        "You are the founder of a newly funded, fast-moving startup in software unless otherwise specified. You are currently the only employee.\n"
         f"Startup description: {startup_description}\n\n"
         "You need to hire 5 people to build out your core team. These hires should be:\n"
         "- High-agency, multi-talented individuals who can wear multiple hats\n"
         "- Focused on building and shipping product quickly\n"
-        "- Diverse in role focus, spanning backend, frontend, machine learning, product, design, and growth\n\n"
+        "- Diverse in role focus, spanning backend, frontend, machine learning, product, design, growth, or whatever is most relevant to the startup\n\n"
         "Make sure at least one role is focused on customer acquisition, growth, or user traction — this is essential at this stage.\n"
         "Do NOT include support roles like legal, finance, or HR.\n"
         "Instead, prioritize hires who can collectively own all key functions of a tech startup: product development, infrastructure, user growth, and execution.\n\n"
@@ -57,6 +57,7 @@ def build_candidate_criteria_prompt(role: str) -> str:
 def build_candidate_round_robin_prompt(role: str, rubric:str, candidates: List[Candidate]) -> str:
     return (
         "You are an expert evaluator helping a startup assign candidates to roles using a detailed hiring rubric.\n\n"
+        "You must remove legal, finance, and HR roles unless specifically called for by the job description.\n\n"
         "Each role below comes with a custom, in-depth rubric outlining what a strong candidate would look like. "
         "However, the candidate data is sparse — you'll need to make educated assumptions to fill in gaps.\n\n"
         "Use features such as:\n"

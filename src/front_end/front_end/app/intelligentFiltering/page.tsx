@@ -288,7 +288,12 @@ export default function IntelligentFilteringPage() {
         </TabsContent>
 
         <TabsContent value="set_roles">
-          <RoleBuilder />
+          <RoleBuilder
+            onRolesUpdated={async () => {
+              await fetchRoles(); // refetch roles
+              setActiveTab("view_roles"); // go to view tab
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="view_roles">

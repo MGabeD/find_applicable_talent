@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 
+interface RoleBuilderProps {
+  onRolesUpdated?: () => void;
+}
+
 interface Role {
   title: string;
   justification: string;
   rubric: string;
 }
 
-export default function RoleBuilder() {
+export default function RoleBuilder({ onRolesUpdated }: RoleBuilderProps) {
   const [userContext, setUserContext] = useState("");
   const [userFeedback, setUserFeedback] = useState("");
   const [roles, setRoles] = useState<Role[]>([]);
@@ -105,6 +109,8 @@ export default function RoleBuilder() {
         title: "Criteria Updated",
         description: "Rubrics have been generated for all roles.",
       });
+
+      if (onRolesUpdated) onRolesUpdated();
     } catch {
       toast({
         title: "Error",
